@@ -26,7 +26,7 @@ const userSchema = mongoose.Schema({
   association: { type: mongoose.Schema.Types.ObjectId, ref: 'associations' },
   admin: Boolean,
   isConfirmed: Boolean,
-  phoneNumber: Number,
+  phoneNumber: String,
   IBAN: String,
 
 });
