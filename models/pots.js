@@ -27,6 +27,7 @@ const potSchema = mongoose.Schema({
     isValidate: Boolean,
     isClosed: Boolean,
     urgent: Boolean,
+    urgenceDescription: String,
     draft: Boolean,
     startDate: Date,
     endDate: Date,
