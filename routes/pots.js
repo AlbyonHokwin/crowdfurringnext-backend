@@ -5,10 +5,9 @@ const Pot = require('../models/pots');
 // Route 'GET'
 // Allow to get the pot with corresponding slug parameter
 router.get('/slug/:slug', async (req, res) => {
-    const foundPot = await Pot.findOne({ slug: req.params.slug });
+    const pot = await Pot.findOne({ slug: req.params.slug }).populate('user');
 
-    if (foundPot) {
-        const pot = await foundPot.populate('user');
+    if (pot) {
         res.json({ result: true, pot })
     } else res.json({ result: false, error: 'No pots found' })
 });
