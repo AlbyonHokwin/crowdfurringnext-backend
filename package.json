@@ -16,6 +16,7 @@
     "express-fileupload": "^1.4.0",
     "mongoose": "^6.8.0",
     "morgan": "~1.9.1",
+    "node-fetch": "2",
     "uid2": "^1.0.0"
   }
 }
