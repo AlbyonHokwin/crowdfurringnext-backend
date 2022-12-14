@@ -18,7 +18,7 @@ router.get('/slug/:slug', async (req, res) => {
 // To get all validated pots and to sort them according to location
 // Location is given through query parameters latitude & longitude
 router.get('/all', async (req, res) => {
-    const { latitude, longitude } = req.query;
+    let { latitude, longitude } = req.query;
     const pots = await Pot.find({ isValidate: true }).populate('user');
 
     if (pots) {
@@ -30,6 +30,7 @@ router.get('/all', async (req, res) => {
                 const [longA, latA] = dataA.features[0].geometry.coordinates;
                 return [pot, getDistanceFromLatLonInKm(latitude, longitude, latA, longA)];
             }));
+
             comparablePots.sort((a, b) => a[1] - b[1]);
             const sortedPots = comparablePots.map(e => e[0]);
 
