@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
+const { checkBody } = require('../modules/checkBody');
 const { getDistanceFromLatLonInKm } = require('../modules/getDistanceFromLatLonInKm');
 const Pot = require('../models/pots');
 
@@ -39,6 +40,43 @@ router.get('/all', async (req, res) => {
         } else res.json({ result: true, length: pots.length, pots });
 
     } else res.json({ result: false, error: 'No validated pots' });
-})
+});
+
+router.put('/pay/:slug', async (req, res) => {
+    if (!checkBody(req.body, ['amount'])) {
+        res.json({ result: false, error: 'Missing or empty amount' });
+        return;
+    }
+
+    const pot = await Pot.findOne({ slug: req.params.slug });
+
+    if (pot) {
+        let updatedPot = null;
+
+        if (req.body.email) {
+            updatedPot = await Pot.findOneAndUpdate(
+                { slug: req.params.slug },
+                {
+                    currentAmount: pot.currentAmount + Number(req.body.amount),
+                    contributors: [... new Set([...pot.contributors, req.body.email.toLowerCase()])],
+                },
+                { returnDocument: "after" },
+            );
+        } else {
+            updatedPot = await Pot.findOneAndUpdate(
+                { slug: req.params.slug },
+                {
+                    currentAmount: pot.currentAmount + Number(req.body.amount),
+                },
+                { returnDocument: "after" },
+            );
+        }
+
+        updatedPot ?
+            res.json({ result: true, newAmount: updatedPot.currentAmount }) :
+            res.json({ result: false, error: 'Error during update of the pot, please try again' });
+
+    } else res.json({ result: false, error: 'No pots found' })
+});
 
 module.exports = router;
