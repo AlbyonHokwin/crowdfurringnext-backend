@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const paymentMethodSchema = mongoose.Schema({
 paymentName: String,
 number: Number,
-expirationCode: Date,
+expirationDate: Date,
 securityCode: Number,
 nameOnCard: String,
 });
