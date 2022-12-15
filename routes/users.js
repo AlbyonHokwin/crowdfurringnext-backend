@@ -63,7 +63,7 @@ router.post('/signin', (req, res) => {
   });
 });
 
-router.put('/addpayment', async (req, res) => {
+router.post('/addpayment', async (req, res) => {
   if (!checkBody(req.body, ['paymentName', 'number', 'expirationDate', 'securityCode', 'nameOnCard'])) {
     res.json({ result: false, error: 'Missing or empty fields' });
     return;
@@ -102,10 +102,48 @@ router.put('/addpayment', async (req, res) => {
           { returnDocument: "after" },
         );
 
-        res.json({ result: true, paymentMethod: updatedUser.paymentMethods[updatedUser.paymentMethods.length - 1] });
+        updatedUser ?
+          res.json({ result: true, paymentMethod: updatedUser.paymentMethods[updatedUser.paymentMethods.length - 1] }) :
+          res.json({ result: false, error: 'Error during update of user, please try again' });
+
       } else res.json({ result: false, error: 'Wrong type of information' });
+
     } else res.json({ result: false, error: 'Name already used' });
+
   } else res.json({ result: false, error: 'No user found' });
-})
+});
+
+router.delete('/deletepayment', async (req, res) => {
+  if (!checkBody(req.body, ['paymentName'])) {
+    res.json({ result: false, error: 'Missing or empty payment method name' });
+    return;
+  }
+
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    res.json({ result: false, error: 'No token provided' });
+    return;
+  }
+
+  const foundUser = await User.findOne({ token });
+
+  if (foundUser) {
+    let { paymentName } = req.body;
+
+    if (foundUser.paymentMethods.find(e => e.paymentName === paymentName)) {
+      const updatedUser = await User.findOneAndUpdate(
+        { token },
+        { paymentMethods: foundUser.paymentMethods.filter(e => e.paymentName !== paymentName) },
+        { returnDocument: "after" },
+      );
+
+      updatedUser ?
+        res.json({ result: true, paymentName }) :
+        res.json({ result: false, error: 'Error during deletion of payment method' });
+    } else res.json({ result: false, error: 'Payment method doesn\'nt exist' })
+  } else res.json({ result: false, error: 'No user found' });
+});
 
 module.exports = router;
