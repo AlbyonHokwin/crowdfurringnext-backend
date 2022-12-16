@@ -29,11 +29,11 @@ router.get("/all", async (req, res) => {
   } else res.json({ result: false, error: "No validated pots" });
 });
 
-router.post("/create", async (req, res) => {
-  console.log(req.files);
+router.post("/create/:boolean", async (req, res) => {
   let {
     animalName,
     infos,
+    socialNetworks,
     description,
     compensation,
     amount,
@@ -43,40 +43,44 @@ router.post("/create", async (req, res) => {
   } = req.body;
 
   infos = JSON.parse(infos);
-
-  const documents = [req.files.documents].flat();
-  const images = [req.files.images].flat();
+  socialNetworks = JSON.parse(socialNetworks);
 
   const foundUser = await User.findOne({ token });
 
-  let pictures = [];
-  let files = [];
   // tant que je n'ai pas le token je passe avec !foundUser
   if (!foundUser) {
-    for (let image of images) {
-      const imagesPath = `./tmp/${uniqid()}.jpg`;
-      const resultMove = await image.mv(imagesPath);
+    let pictures = [];
+    if (req.files?.images.length) {
+      const images = [req.files.images].flat();
+      for (let image of images) {
+        const imagesPath = `./tmp/${uniqid()}.jpg`;
+        const resultMove = await image.mv(imagesPath);
 
-      if (!resultMove) {
-        const resultCloudinary = await cloudinary.uploader.upload(imagesPath);
-        pictures.push(resultCloudinary.secure_url);
-      } else {
-        res.json({ result: false, error: resultMove });
+        if (!resultMove) {
+          const resultCloudinary = await cloudinary.uploader.upload(imagesPath);
+          pictures.push(resultCloudinary.secure_url);
+        } else {
+          res.json({ result: false, error: resultMove });
+        }
+        fs.unlinkSync(imagesPath);
       }
-      fs.unlinkSync(imagesPath);
     }
 
-    for (let document of documents) {
-      const filesPath = `./tmp/${uniqid()}.jpg`;
-      const resultMove = await document.mv(filesPath);
+    let files = [];
+    if (req.files?.documents) {
+      const documents = [req.files.documents].flat();
+      for (let document of documents) {
+        const filesPath = `./tmp/${uniqid()}.jpg`;
+        const resultMove = await document.mv(filesPath);
 
-      if (!resultMove) {
-        const resultCloudinary = await cloudinary.uploader.upload(filesPath);
-        files.push({ name: document.name, url: resultCloudinary.secure_url });
-      } else {
-        res.json({ result: false, error: resultMove });
+        if (!resultMove) {
+          const resultCloudinary = await cloudinary.uploader.upload(filesPath);
+          files.push({ name: document.name, url: resultCloudinary.secure_url });
+        } else {
+          res.json({ result: false, error: resultMove });
+        }
+        fs.unlinkSync(filesPath);
       }
-      fs.unlinkSync(filesPath);
     }
 
     const newPot = new Pot({
@@ -89,17 +93,17 @@ router.post("/create", async (req, res) => {
       description,
       info: infos,
       compensation,
-      socialNetworks: [],
+      socialNetworks: socialNetworks,
       documents: files,
       isValidate: false,
       isClosed: false,
       urgent,
       urgenceDescription: explanation,
-      draft: false,
+      draft: req.params.boolean,
       startDate: "",
       endDate: "",
       duration: "",
-      slug: "",
+      slug: `/${animalName.toLowerCase().trim()}/${uniqid()}`,
     });
     newPot.save().then((pot) => {
       if (pot !== null) {
@@ -108,6 +112,8 @@ router.post("/create", async (req, res) => {
         return res.json({ result: false });
       }
     });
+  } else {
+    return res.json({ result: false });
   }
 });
 
