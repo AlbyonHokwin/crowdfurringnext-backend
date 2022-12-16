@@ -23,7 +23,7 @@ router.post("/signup", (req, res) => {
   }
 
   // Check if the user has not already been registered
-  User.findOne({ email: { $regex: new RegExp(req.body.email, "i") } }).then(
+  User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, 'i') } }).then(
     (data) => {
       if (data === null) {
         const hash = bcrypt.hashSync(req.body.password, 10);
@@ -65,7 +65,7 @@ router.post("/signin", (req, res) => {
     return;
   }
 
-  User.findOne({ email: { $regex: new RegExp(req.body.email, "i") } }).then(
+  User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, 'i') } }).then(
     (data) => {
       if (bcrypt.compareSync(req.body.password, data.password)) {
         res.json({ result: true, token: data.token, email: data.email });
@@ -76,8 +76,6 @@ router.post("/signin", (req, res) => {
   );
 });
 
-<<<<<<< HEAD
-=======
 router.post('/addpayment', async (req, res) => {
   if (!checkBody(req.body, ['paymentName', 'number', 'expirationDate', 'securityCode', 'nameOnCard'])) {
     res.json({ result: false, error: 'Missing or empty fields' });
@@ -210,7 +208,7 @@ router.get('/information', (req, res) => {
               lastname: data.lastname,
               street: data.address.street,
               zipCode: data.address.zipCode,
-              additionnal: data.address.additionnal,
+              additionnal: data.address.additionnal||'',
               city: data.address.city,
             },
           });
