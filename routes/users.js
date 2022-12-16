@@ -214,5 +214,6 @@ router.get('/information', (req, res) => {
           });
         }
       })
-}),
+});
+
   module.exports = router;
