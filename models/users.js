@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
 
 const paymentMethodSchema = mongoose.Schema({
-  paymentName: String,
-  number: Number,
-  expirationCode: Date,
-  securityCode: Number,
-  nameOnCard: String,
+paymentName: String,
+number: Number,
+expirationDate: Date,
+securityCode: Number,
+nameOnCard: String,
 });
 const addressSchema = mongoose.Schema({
   street: String,
