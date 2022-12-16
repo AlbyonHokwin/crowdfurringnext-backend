@@ -6,6 +6,8 @@ const User = require('../models/users');
 const { checkBody } = require('../modules/checkBody');
 const bcrypt = require('bcrypt');
 const uid2 = require('uid2');
+const { count } = require('../models/users');
+const res = require('express/lib/response');
 
 router.post('/signup', (req, res) => {
   if (!checkBody(req.body, ['email', 'password', 'lastname', 'firstname', 'street', 'zipCode', 'city'])) {
@@ -14,7 +16,7 @@ router.post('/signup', (req, res) => {
   }
 
   // Check if the user has not already been registered
-  User.findOne({ email: { $regex: new RegExp(req.body.email, 'i') } }).then(data => {
+  User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, 'i') } }).then(data => {
     if (data === null) {
       const hash = bcrypt.hashSync(req.body.password, 10);
       const newUser = new User({
@@ -35,7 +37,7 @@ router.post('/signup', (req, res) => {
         admin: false,
         isConfirmed: false,
         phoneNumber: "",
-        IBAN: "",        
+        IBAN: "",
       });
 
       newUser.save().then(newDoc => {
@@ -54,7 +56,7 @@ router.post('/signin', (req, res) => {
     return;
   }
 
-  User.findOne({ email: { $regex: new RegExp(req.body.email, 'i') } }).then(data => {
+  User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, 'i') } }).then(data => {
     if (bcrypt.compareSync(req.body.password, data.password)) {
       res.json({ result: true, token: data.token, email: data.email });
     } else {
@@ -63,5 +65,60 @@ router.post('/signin', (req, res) => {
   });
 });
 
+router.put('/modify', (req, res) => {
+  const token = req.headers['authorization'].split(' ')[1];
+  if (!checkBody(req.body, ['email', 'lastname', 'firstname', 'street', 'zipCode', 'city'])) {
+    res.json({ result: false, error: 'Missing or empty fields' });
+    return;
+  }
 
-module.exports = router;
+  User.findOne({ token }).then(data => {
+    if (data) {
+      User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, 'i') }, token: { $not: { $eq: token } } }).then(data => {
+        if (data === null) {
+          User.updateOne({ token },
+            {
+              email: req.body.email,
+              firstname: req.body.firstname,
+              lastname: req.body.lastname,
+              street: req.body.street,
+              zipCode: req.body.zipCode,
+              additionnal: req.body.additionnal || "",
+              city: req.body.city,
+            }).then(updated => {
+              res.json({ result: updated.acknowledged })
+            });
+        } else res.json({ result: false, error: 'Email already used' });
+      });
+    } else res.json({ result: false, error: 'User not found' });
+  })
+});
+
+
+router.get('/information', (req, res) => {
+  const token = req.headers['authorization'].split(' ')[1];
+  User.findOne({ token }).then(data => {
+    if (data === null) {
+      res.json({ result: false, error: 'User not found' });
+      return;
+    }
+  }),
+    User.findOne({token})
+      .then(data => {
+        if (data) {
+          res.json({
+            result: true,
+            user: {
+              email: data.email,
+              firstname: data.firstname,
+              lastname: data.lastname,
+              street: data.address.street,
+              zipCode: data.address.zipCode,
+              additionnal: data.address.additionnal,
+              city: data.address.city,
+            },
+          });
+        }
+      })
+}),
+  module.exports = router;
