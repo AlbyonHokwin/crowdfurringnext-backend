@@ -113,7 +113,7 @@ router.post('/addpayment', async (req, res) => {
 
     if (!foundUser.paymentMethods.find(e => e.paymentName === paymentName)) {
       number = +number;
-      expirationDate = new Date(expirationDate.split('/')[1], expirationDate.split('/')[0]);
+      expirationDate = new Date(expirationDate);
       securityCode = +securityCode;
 
       const newPaymentMethod = {
