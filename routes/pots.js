@@ -100,16 +100,22 @@ router.post("/create/:boolean", async (req, res) => {
     amount,
     urgent,
     explanation,
-    token,
   } = req.body;
 
   infos = JSON.parse(infos);
   socialNetworks = JSON.parse(socialNetworks);
 
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    res.json({ result: false, error: 'No token provided' });
+    return;
+  }
+
   const foundUser = await User.findOne({ token });
 
-  // tant que je n'ai pas le token je passe avec !foundUser
-  if (!foundUser) {
+  if (foundUser) {
     let pictures = [];
     if (req.files?.images.length) {
       const images = [req.files.images].flat();
@@ -145,7 +151,7 @@ router.post("/create/:boolean", async (req, res) => {
     }
 
     const newPot = new Pot({
-      //   user: data.id
+      user: foundUser._id,
       contributors: [],
       animalName,
       targetAmount: amount,
@@ -164,17 +170,17 @@ router.post("/create/:boolean", async (req, res) => {
       startDate: "",
       endDate: "",
       duration: "",
-      slug: `/${animalName.toLowerCase().trim()}/${uniqid()}`,
+      slug: `${animalName.toLowerCase().trim()}_${uniqid()}`,
     });
     newPot.save().then((pot) => {
       if (pot !== null) {
-        return res.json({ result: true });
+        return res.json({ result: true, pot });
       } else {
-        return res.json({ result: false });
+        return res.json({ result: false, error: 'Error during the save' });
       }
     });
   } else {
-    return res.json({ response: false });
+    return res.json({ result: false, error: 'User not found' });
   }
 });
 
