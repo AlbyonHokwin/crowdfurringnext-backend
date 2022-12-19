@@ -7,9 +7,11 @@ const uniqid = require("uniqid");
 
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
-const fetch = require('node-fetch');
-const { checkBody } = require('../modules/checkBody');
-const { getDistanceFromLatLonInKm } = require('../modules/getDistanceFromLatLonInKm');
+const fetch = require("node-fetch");
+const { checkBody } = require("../modules/checkBody");
+const {
+  getDistanceFromLatLonInKm,
+} = require("../modules/getDistanceFromLatLonInKm");
 
 // Route 'GET'
 // Allow to get the pot with corresponding slug parameter
@@ -24,65 +26,74 @@ router.get("/slug/:slug", async (req, res) => {
 // Route 'GET'
 // To get all validated pots and to sort them according to location
 // Location is given through query parameters latitude & longitude
-router.get('/all', async (req, res) => {
-    let { latitude, longitude } = req.query;
-    const pots = await Pot.find({ isValidate: true }).populate('user');
+router.get("/all", async (req, res) => {
+  let { latitude, longitude } = req.query;
+  const pots = await Pot.find({ isValidate: true }).populate("user");
 
-    if (pots) {
-        if (latitude && longitude) {
-            const comparablePots = await Promise.all(pots.map(async pot => {
-                const addressA = pot.user.address;
-                const responseA = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${addressA.street}&postcode=${addressA.zipCode}&limit=1`);
-                const dataA = await responseA.json();
-                const [longA, latA] = dataA.features[0].geometry.coordinates;
-                return [pot, getDistanceFromLatLonInKm(latitude, longitude, latA, longA)];
-            }));
+  if (pots) {
+    if (latitude && longitude) {
+      const comparablePots = await Promise.all(
+        pots.map(async (pot) => {
+          const addressA = pot.user.address;
+          const responseA = await fetch(
+            `https://api-adresse.data.gouv.fr/search/?q=${addressA.street}&postcode=${addressA.zipCode}&limit=1`
+          );
+          const dataA = await responseA.json();
+          const [longA, latA] = dataA.features[0].geometry.coordinates;
+          return [
+            pot,
+            getDistanceFromLatLonInKm(latitude, longitude, latA, longA),
+          ];
+        })
+      );
 
-            comparablePots.sort((a, b) => a[1] - b[1]);
-            const sortedPots = comparablePots.map(e => e[0]);
+      comparablePots.sort((a, b) => a[1] - b[1]);
+      const sortedPots = comparablePots.map((e) => e[0]);
 
-            res.json({ result: true, length: pots.length, pots: sortedPots });
-
-        } else res.json({ result: true, length: pots.length, pots });
-
-    } else res.json({ result: false, error: 'No validated pots' });
+      res.json({ result: true, length: pots.length, pots: sortedPots });
+    } else res.json({ result: true, length: pots.length, pots });
+  } else res.json({ result: false, error: "No validated pots" });
 });
 
-router.put('/pay/:slug', async (req, res) => {
-    if (!checkBody(req.body, ['amount'])) {
-        res.json({ result: false, error: 'Missing or empty amount' });
-        return;
+router.put("/pay/:slug", async (req, res) => {
+  if (!checkBody(req.body, ["amount"])) {
+    res.json({ result: false, error: "Missing or empty amount" });
+    return;
+  }
+
+  const pot = await Pot.findOne({ slug: req.params.slug });
+
+  if (pot) {
+    let updatedPot = null;
+
+    if (req.body.email) {
+      updatedPot = await Pot.findOneAndUpdate(
+        { slug: req.params.slug },
+        {
+          currentAmount: pot.currentAmount + Number(req.body.amount),
+          contributors: [
+            ...new Set([...pot.contributors, req.body.email.toLowerCase()]),
+          ],
+        },
+        { returnDocument: "after" }
+      );
+    } else {
+      updatedPot = await Pot.findOneAndUpdate(
+        { slug: req.params.slug },
+        {
+          currentAmount: pot.currentAmount + Number(req.body.amount),
+        },
+        { returnDocument: "after" }
+      );
     }
 
-    const pot = await Pot.findOne({ slug: req.params.slug });
-
-    if (pot) {
-        let updatedPot = null;
-
-        if (req.body.email) {
-            updatedPot = await Pot.findOneAndUpdate(
-                { slug: req.params.slug },
-                {
-                    currentAmount: pot.currentAmount + Number(req.body.amount),
-                    contributors: [... new Set([...pot.contributors, req.body.email.toLowerCase()])],
-                },
-                { returnDocument: "after" },
-            );
-        } else {
-            updatedPot = await Pot.findOneAndUpdate(
-                { slug: req.params.slug },
-                {
-                    currentAmount: pot.currentAmount + Number(req.body.amount),
-                },
-                { returnDocument: "after" },
-            );
-        }
-
-        updatedPot ?
-            res.json({ result: true, newAmount: updatedPot.currentAmount }) :
-            res.json({ result: false, error: 'Error during update of the pot, please try again' });
-
-    } else res.json({ result: false, error: 'No pots found' })
+    updatedPot
+      ? res.json({ result: true, newAmount: updatedPot.currentAmount })
+      : res.json({
+          result: false,
+          error: "Error during update of the pot, please try again",
+        });
+  } else res.json({ result: false, error: "No pots found" });
 });
 
 router.post("/create/:boolean", async (req, res) => {
@@ -169,7 +180,7 @@ router.post("/create/:boolean", async (req, res) => {
       }
     });
   } else {
-    return res.json({ result: false });
+    return res.json({ response: false });
   }
 });
 
