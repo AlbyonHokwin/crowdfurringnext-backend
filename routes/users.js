@@ -76,6 +76,22 @@ router.post("/signin", (req, res) => {
   );
 });
 
+router.get('/payments', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    res.json({ result: false, error: 'No token provided' });
+    return;
+  }
+
+  const foundUser = await User.findOne({ token });
+
+  if (foundUser) {
+    res.json({ result: true, paymentMethods: foundUser.paymentMethods });
+  } else res.json({ result: false, error: 'No user found' });
+});
+
 router.post('/addpayment', async (req, res) => {
   if (!checkBody(req.body, ['paymentName', 'number', 'expirationDate', 'securityCode', 'nameOnCard'])) {
     res.json({ result: false, error: 'Missing or empty fields' });
@@ -97,7 +113,7 @@ router.post('/addpayment', async (req, res) => {
 
     if (!foundUser.paymentMethods.find(e => e.paymentName === paymentName)) {
       number = +number;
-      expirationDate = new Date(expirationDate.split('/')[1], expirationDate.split('/')[0]);
+      expirationDate = new Date(expirationDate);
       securityCode = +securityCode;
 
       const newPaymentMethod = {
@@ -197,7 +213,7 @@ router.get('/information', (req, res) => {
       return;
     }
   }),
-    User.findOne({token})
+    User.findOne({ token })
       .then(data => {
         if (data) {
           res.json({
@@ -208,7 +224,7 @@ router.get('/information', (req, res) => {
               lastname: data.lastname,
               street: data.address.street,
               zipCode: data.address.zipCode,
-              additionnal: data.address.additionnal||'',
+              additionnal: data.address.additionnal || '',
               city: data.address.city,
             },
           });
@@ -216,4 +232,4 @@ router.get('/information', (req, res) => {
       })
 });
 
-  module.exports = router;
+module.exports = router;
