@@ -26,40 +26,6 @@ router.get("/slug/:slug", async (req, res) => {
 // Route 'GET'
 // To get all validated pots and to sort them according to location
 // Location is given through query parameters latitude & longitude
-<<<<<<< HEAD
-router.get("/all", async (req, res) => {
-  let { latitude, longitude } = req.query;
-  const pots = await Pot.find({ isValidate: true }).populate("user");
-
-  if (pots) {
-    if (latitude && longitude) {
-      const comparablePots = await Promise.all(
-        pots.map(async (pot) => {
-          const addressA = pot.user.address;
-          const responseA = await fetch(
-            `https://api-adresse.data.gouv.fr/search/?q=${addressA.street}&postcode=${addressA.zipCode}&limit=1`
-          );
-          const dataA = await responseA.json();
-          const [longA, latA] = dataA.features[0].geometry.coordinates;
-          return [
-            pot,
-            getDistanceFromLatLonInKm(latitude, longitude, latA, longA),
-          ];
-        })
-      );
-
-      comparablePots.sort((a, b) => a[1] - b[1]);
-      const sortedPots = comparablePots.map((e) => e[0]);
-
-      res.json({ result: true, length: pots.length, pots: sortedPots });
-    } else res.json({ result: true, length: pots.length, pots });
-  } else res.json({ result: false, error: "No validated pots" });
-});
-
-router.put("/pay/:slug", async (req, res) => {
-  if (!checkBody(req.body, ["amount"])) {
-    res.json({ result: false, error: "Missing or empty amount" });
-=======
 router.get('/all', async (req, res) => {
   let { latitude, longitude } = req.query;
   const pots = await Pot.find({ isValidate: true }).populate('user');
@@ -90,7 +56,6 @@ router.get('/all', async (req, res) => {
 router.put('/pay/:slug', async (req, res) => {
   if (!checkBody(req.body, ['amount'])) {
     res.json({ result: false, error: 'Missing or empty amount' });
->>>>>>> 8e722ba0f0371b4067dedeb0de90d1a9f2ea3c86
     return;
   }
 
@@ -104,17 +69,9 @@ router.put('/pay/:slug', async (req, res) => {
         { slug: req.params.slug },
         {
           currentAmount: pot.currentAmount + Number(req.body.amount),
-<<<<<<< HEAD
-          contributors: [
-            ...new Set([...pot.contributors, req.body.email.toLowerCase()]),
-          ],
-        },
-        { returnDocument: "after" }
-=======
           contributors: [... new Set([...pot.contributors, req.body.email.toLowerCase()])],
         },
         { returnDocument: "after" },
->>>>>>> 8e722ba0f0371b4067dedeb0de90d1a9f2ea3c86
       );
     } else {
       updatedPot = await Pot.findOneAndUpdate(
@@ -122,19 +79,6 @@ router.put('/pay/:slug', async (req, res) => {
         {
           currentAmount: pot.currentAmount + Number(req.body.amount),
         },
-<<<<<<< HEAD
-        { returnDocument: "after" }
-      );
-    }
-
-    updatedPot
-      ? res.json({ result: true, newAmount: updatedPot.currentAmount })
-      : res.json({
-          result: false,
-          error: "Error during update of the pot, please try again",
-        });
-  } else res.json({ result: false, error: "No pots found" });
-=======
         { returnDocument: "after" },
       );
     }
@@ -144,7 +88,6 @@ router.put('/pay/:slug', async (req, res) => {
       res.json({ result: false, error: 'Error during update of the pot, please try again' });
 
   } else res.json({ result: false, error: 'No pots found' })
->>>>>>> 8e722ba0f0371b4067dedeb0de90d1a9f2ea3c86
 });
 
 router.post("/create/:boolean", async (req, res) => {
