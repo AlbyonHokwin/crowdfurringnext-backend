@@ -202,13 +202,11 @@ router.post("/create/:boolean", async (req, res) => {
 router.get("/user", async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-  console.log(token);
   if (!token) {
     res.json({ result: false, error: "No token provided" });
     return;
   }
   const foundUser = await User.findOne({ token });
-  // tant que je n'ai pas le token je passe avec !foundUser
   if (foundUser) {
     // const pots = await Pot.find({ user: foundUser._id });
     const contributor = await Pot.find({
@@ -220,6 +218,24 @@ router.get("/user", async (req, res) => {
     };
     return res.json({ result: true, data });
   }
+});
+
+router.delete("/delete/:id", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+  const foundUser = await User.findOne({ token });
+
+  Pot.deleteOne({ _id: req.params.id }).then(async (data) => {
+    if (data.deletedCount) {
+      const pots = await Pot.find({ user: foundUser._id });
+      console.log(pots);
+      return res.json({ result: true, data: pots });
+    }
+  });
 });
 
 module.exports = router;
