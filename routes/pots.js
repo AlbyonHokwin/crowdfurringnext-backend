@@ -88,7 +88,7 @@ router.get('/search/:search', async (req, res) => {
   }
 
   foundPots[0] ?
-    res.json({ result: true, length: foundPots.length, pot: foundPots }) :
+    res.json({ result: true, length: foundPots.length, pots: foundPots }) :
     res.json({ result: false, error: 'No pots found' });
 });
 
