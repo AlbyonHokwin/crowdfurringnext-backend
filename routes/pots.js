@@ -28,7 +28,7 @@ router.get("/slug/:slug", async (req, res) => {
 // Location is given through query parameters latitude & longitude
 router.get('/all', async (req, res) => {
   let { latitude, longitude } = req.query;
-  const pots = await Pot.find({ isValidate: true }).populate('user');
+  const pots = await Pot.find({ isValidate: true, isClosed: false }).populate('user');
 
   if (pots) {
     if (latitude && longitude) {
@@ -51,6 +51,45 @@ router.get('/all', async (req, res) => {
     } else res.json({ result: true, length: pots.length, pots });
 
   } else res.json({ result: false, error: 'No validated pots' });
+});
+
+router.get('/search/:search', async (req, res) => {
+  let search = req.params.search;
+  const numInSearch = search.match(/\d+/g);
+  const wordsInSearch = search.match(/[^\d\s]+/g);
+  let foundPots = [];
+
+  const validPots = await Pot.find({ isValidate: true, isClosed: false }).populate('user');
+
+  if (numInSearch) {
+    // Recherche par code postal
+    validPots.forEach(pot => numInSearch.some(num => new RegExp(num).test(pot.user.address.zipCode.toString())) && foundPots.push(pot));
+  }
+
+  if (wordsInSearch) {
+    if (foundPots[0]) {
+      foundPots = foundPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.animalName)));
+    } else {
+      foundPotsByName = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.animalName)));
+      foundPotsByCity = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.user.address.city)));
+      console.log(foundPotsByName.length, foundPotsByCity.length);
+      if (foundPotsByName[0] && foundPotsByCity[0]) {
+        foundPotsByName.forEach(pot => {
+          let foundInCity = foundPotsByCity.some(potCity => pot.slug === potCity.slug);
+          let alreadyIn = foundPots.some(potAlready => pot.slug !== potAlready.slug);
+          (foundInCity && !alreadyIn) && foundPots.push(pot);
+        });
+      } else {
+        foundPotsByName[0] ?
+          foundPots = foundPotsByName :
+          foundPots = foundPotsByCity;
+      }
+    }
+  }
+
+  foundPots[0] ?
+    res.json({ result: true, length: foundPots.length, pot: foundPots }) :
+    res.json({ result: false, error: 'No pots found' });
 });
 
 router.put('/pay/:slug', async (req, res) => {
