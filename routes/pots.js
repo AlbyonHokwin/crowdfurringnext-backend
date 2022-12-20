@@ -72,7 +72,7 @@ router.get('/search/:search', async (req, res) => {
     } else {
       foundPotsByName = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.animalName)));
       foundPotsByCity = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.user.address.city)));
-      console.log(foundPotsByName.length, foundPotsByCity.length);
+
       if (foundPotsByName[0] && foundPotsByCity[0]) {
         foundPotsByName.forEach(pot => {
           let foundInCity = foundPotsByCity.some(potCity => pot.slug === potCity.slug);
