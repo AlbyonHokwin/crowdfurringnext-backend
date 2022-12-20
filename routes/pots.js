@@ -193,4 +193,27 @@ router.post("/create/:boolean", async (req, res) => {
   }
 });
 
+router.get("/user", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  console.log(token);
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+  const foundUser = await User.findOne({ token });
+  // tant que je n'ai pas le token je passe avec !foundUser
+  if (foundUser) {
+    // const pots = await Pot.find({ user: foundUser._id });
+    const contributor = await Pot.find({
+      contributors: { $in: ["marcillaud.jeremy@gmail.com"] },
+    });
+    const data = {
+      // pots,
+      contributor,
+    };
+    return res.json({ result: true, data });
+  }
+});
+
 module.exports = router;
