@@ -150,7 +150,7 @@ router.post("/create/:boolean", async (req, res) => {
     infos,
     socialNetworks,
     description,
-    compensation,
+    compensations,
     amount,
     urgent,
     explanation,
@@ -158,6 +158,7 @@ router.post("/create/:boolean", async (req, res) => {
 
   infos = JSON.parse(infos);
   socialNetworks = JSON.parse(socialNetworks);
+  compensations = JSON.parse(compensations);
 
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -213,7 +214,7 @@ router.post("/create/:boolean", async (req, res) => {
       pictures: pictures,
       description,
       info: infos,
-      compensation,
+      compensations,
       socialNetworks: socialNetworks,
       documents: files,
       isValidate: false,
@@ -271,7 +272,6 @@ router.delete("/delete/:id", async (req, res) => {
   Pot.deleteOne({ _id: req.params.id }).then(async (data) => {
     if (data.deletedCount) {
       const pots = await Pot.find({ user: foundUser._id });
-      console.log(pots);
       return res.json({ result: true, data: pots });
     }
   });
