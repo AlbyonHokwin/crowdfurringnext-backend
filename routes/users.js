@@ -178,12 +178,7 @@ router.post("/addpayment", async (req, res) => {
   } else res.json({ result: false, error: "No user found" });
 });
 
-router.delete("/deletepayment", async (req, res) => {
-  if (!checkBody(req.body, ["paymentName"])) {
-    res.json({ result: false, error: "Missing or empty payment method name" });
-    return;
-  }
-
+router.delete("/deletepayment/:paymentName", async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
@@ -195,7 +190,7 @@ router.delete("/deletepayment", async (req, res) => {
   const foundUser = await User.findOne({ token });
 
   if (foundUser) {
-    let { paymentName } = req.body;
+    let paymentName = req.params.paymentName;
 
     if (foundUser.paymentMethods.find((e) => e.paymentName === paymentName)) {
       const updatedUser = await User.findOneAndUpdate(
