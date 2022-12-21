@@ -191,10 +191,12 @@ router.put('/modify', (req, res) => {
               email: req.body.email,
               firstname: req.body.firstname,
               lastname: req.body.lastname,
-              street: req.body.street,
-              zipCode: req.body.zipCode,
-              additionnal: req.body.additionnal || "",
-              city: req.body.city,
+              address: {
+                street: req.body.street,
+                zipCode: req.body.zipCode,
+                additionnal: req.body.additionnal || "",
+                city: req.body.city,
+              },
             }).then(updated => {
               res.json({ result: updated.acknowledged })
             });
@@ -230,6 +232,7 @@ router.get('/information', (req, res) => {
           });
         }
       })
+     
 });
 
 module.exports = router;
