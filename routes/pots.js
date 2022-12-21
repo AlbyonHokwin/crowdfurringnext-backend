@@ -26,31 +26,81 @@ router.get("/slug/:slug", async (req, res) => {
 // Route 'GET'
 // To get all validated pots and to sort them according to location
 // Location is given through query parameters latitude & longitude
-router.get('/all', async (req, res) => {
+router.get("/all", async (req, res) => {
   let { latitude, longitude } = req.query;
-  const pots = await Pot.find({ isValidate: true }).populate('user');
+  const pots = await Pot.find({ isValidate: true, isClosed: false }).populate('user');
 
   if (pots) {
     if (latitude && longitude) {
       try {
-        const comparablePots = await Promise.all(pots.map(async pot => {
-          const addressA = pot.user.address;
-          const responseA = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${addressA.street}&postcode=${addressA.zipCode}&limit=1`);
-          const dataA = await responseA.json();
-          const [longA, latA] = dataA.features[0].geometry.coordinates;
-          return [pot, getDistanceFromLatLonInKm(latitude, longitude, latA, longA)];
-        }));
+        const comparablePots = await Promise.all(
+          pots.map(async (pot) => {
+            const addressA = pot.user.address;
+            const responseA = await fetch(
+              `https://api-adresse.data.gouv.fr/search/?q=${addressA.street}&postcode=${addressA.zipCode}&limit=1`
+            );
+            const dataA = await responseA.json();
+            const [longA, latA] = dataA.features[0].geometry.coordinates;
+            return [
+              pot,
+              getDistanceFromLatLonInKm(latitude, longitude, latA, longA),
+            ];
+          })
+        );
 
         comparablePots.sort((a, b) => a[1] - b[1]);
-        const sortedPots = comparablePots.map(e => e[0]);
+        const sortedPots = comparablePots.map((e) => e[0]);
 
         res.json({ result: true, length: pots.length, pots: sortedPots });
       } catch (error) {
-        res.json({ result: true, length: pots.length, pots, error: 'Not Sorted' })
+        res.json({
+          result: true,
+          length: pots.length,
+          pots,
+          error: "Not Sorted",
+        });
       }
     } else res.json({ result: true, length: pots.length, pots });
+  } else res.json({ result: false, error: "No validated pots" });
+});
 
-  } else res.json({ result: false, error: 'No validated pots' });
+router.get('/search/:search', async (req, res) => {
+  let search = req.params.search;
+  const numInSearch = search.match(/\d+/g);
+  const wordsInSearch = search.match(/[^\d\s]+/g);
+  let foundPots = [];
+
+  const validPots = await Pot.find({ isValidate: true, isClosed: false }).populate('user');
+
+  if (numInSearch) {
+    // Recherche par code postal
+    validPots.forEach(pot => numInSearch.some(num => new RegExp(num).test(pot.user.address.zipCode.toString())) && foundPots.push(pot));
+  }
+
+  if (wordsInSearch) {
+    if (foundPots[0]) {
+      foundPots = foundPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.animalName)));
+    } else {
+      foundPotsByName = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.animalName)));
+      foundPotsByCity = validPots.filter(pot => wordsInSearch.some(w => new RegExp(w, 'i').test(pot.user.address.city)));
+
+      if (foundPotsByName[0] && foundPotsByCity[0]) {
+        foundPotsByName.forEach(pot => {
+          let foundInCity = foundPotsByCity.some(potCity => pot.slug === potCity.slug);
+          let alreadyIn = foundPots.some(potAlready => pot.slug !== potAlready.slug);
+          (foundInCity && !alreadyIn) && foundPots.push(pot);
+        });
+      } else {
+        foundPotsByName[0] ?
+          foundPots = foundPotsByName :
+          foundPots = foundPotsByCity;
+      }
+    }
+  }
+
+  foundPots[0] ?
+    res.json({ result: true, length: foundPots.length, pots: foundPots }) :
+    res.json({ result: false, error: 'No pots found' });
 });
 
 router.put('/pay/:slug', async (req, res) => {
@@ -69,9 +119,11 @@ router.put('/pay/:slug', async (req, res) => {
         { slug: req.params.slug },
         {
           currentAmount: pot.currentAmount + Number(req.body.amount),
-          contributors: [... new Set([...pot.contributors, req.body.email.toLowerCase()])],
+          contributors: [
+            ...new Set([...pot.contributors, req.body.email.toLowerCase()]),
+          ],
         },
-        { returnDocument: "after" },
+        { returnDocument: "after" }
       );
     } else {
       updatedPot = await Pot.findOneAndUpdate(
@@ -79,15 +131,17 @@ router.put('/pay/:slug', async (req, res) => {
         {
           currentAmount: pot.currentAmount + Number(req.body.amount),
         },
-        { returnDocument: "after" },
+        { returnDocument: "after" }
       );
     }
 
-    updatedPot ?
-      res.json({ result: true, newAmount: updatedPot.currentAmount }) :
-      res.json({ result: false, error: 'Error during update of the pot, please try again' });
-
-  } else res.json({ result: false, error: 'No pots found' })
+    updatedPot
+      ? res.json({ result: true, newAmount: updatedPot.currentAmount })
+      : res.json({
+          result: false,
+          error: "Error during update of the pot, please try again",
+        });
+  } else res.json({ result: false, error: "No pots found" });
 });
 
 router.post("/create/:boolean", async (req, res) => {
@@ -100,16 +154,22 @@ router.post("/create/:boolean", async (req, res) => {
     amount,
     urgent,
     explanation,
-    token,
   } = req.body;
 
   infos = JSON.parse(infos);
   socialNetworks = JSON.parse(socialNetworks);
 
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+
   const foundUser = await User.findOne({ token });
 
-  // tant que je n'ai pas le token je passe avec !foundUser
-  if (!foundUser) {
+  if (foundUser) {
     let pictures = [];
     if (req.files?.images.length) {
       const images = [req.files.images].flat();
@@ -145,7 +205,7 @@ router.post("/create/:boolean", async (req, res) => {
     }
 
     const newPot = new Pot({
-      //   user: data.id
+      user: foundUser._id,
       contributors: [],
       animalName,
       targetAmount: amount,
@@ -164,18 +224,57 @@ router.post("/create/:boolean", async (req, res) => {
       startDate: "",
       endDate: "",
       duration: "",
-      slug: `/${animalName.toLowerCase().trim()}/${uniqid()}`,
+      slug: `${animalName.toLowerCase().trim()}_${uniqid()}`,
     });
     newPot.save().then((pot) => {
       if (pot !== null) {
-        return res.json({ result: true });
+        return res.json({ result: true, pot });
       } else {
-        return res.json({ result: false });
+        return res.json({ result: false, error: "Error during the save" });
       }
     });
   } else {
-    return res.json({ response: false });
+    return res.json({ result: false, error: "User not found" });
   }
+});
+
+router.get("/user", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+  const foundUser = await User.findOne({ token });
+  if (foundUser) {
+    // const pots = await Pot.find({ user: foundUser._id });
+    const contributor = await Pot.find({
+      contributors: { $in: ["marcillaud.jeremy@gmail.com"] },
+    });
+    const data = {
+      // pots,
+      contributor,
+    };
+    return res.json({ result: true, data });
+  }
+});
+
+router.delete("/delete/:id", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+  const foundUser = await User.findOne({ token });
+
+  Pot.deleteOne({ _id: req.params.id }).then(async (data) => {
+    if (data.deletedCount) {
+      const pots = await Pot.find({ user: foundUser._id });
+      console.log(pots);
+      return res.json({ result: true, data: pots });
+    }
+  });
 });
 
 module.exports = router;
