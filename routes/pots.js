@@ -136,7 +136,7 @@ router.put('/pay/:slug', async (req, res) => {
     }
 
     updatedPot
-      ? res.json({ result: true, newAmount: updatedPot.currentAmount })
+      ? res.json({ result: true, pot: updatedPot })
       : res.json({
         result: false,
         error: "Error during update of the pot, please try again",
