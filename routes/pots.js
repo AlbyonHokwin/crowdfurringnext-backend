@@ -138,9 +138,9 @@ router.put('/pay/:slug', async (req, res) => {
     updatedPot
       ? res.json({ result: true, newAmount: updatedPot.currentAmount })
       : res.json({
-          result: false,
-          error: "Error during update of the pot, please try again",
-        });
+        result: false,
+        error: "Error during update of the pot, please try again",
+      });
   } else res.json({ result: false, error: "No pots found" });
 });
 
@@ -213,7 +213,12 @@ router.post("/create/:boolean", async (req, res) => {
       currentAmount: 0,
       pictures: pictures,
       description,
-      info: infos,
+      info: {
+        specie: infos.specie || '',
+        race: infos.breed || '',
+        age: +infos.age || 0,
+        sex: infos.sex || '',
+      },
       compensations,
       socialNetworks: socialNetworks,
       documents: files,
@@ -236,6 +241,102 @@ router.post("/create/:boolean", async (req, res) => {
     });
   } else {
     return res.json({ result: false, error: "User not found" });
+  }
+});
+
+router.put("/update/:id/:boolean", async (req, res) => {
+  let {
+    animalName,
+    infos,
+    socialNetworks,
+    description,
+    compensations,
+    amount,
+    urgent,
+    explanation,
+    uploadedImages,
+    uploadedDocuments,
+  } = req.body;
+
+  infos = JSON.parse(infos);
+  socialNetworks = JSON.parse(socialNetworks);
+  compensations = JSON.parse(compensations);
+  uploadedImages = JSON.parse(uploadedImages);
+  uploadedDocuments = JSON.parse(uploadedDocuments);
+
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+
+  const foundUser = await User.findOne({ token });
+
+  if (foundUser) {
+    let pictures = uploadedImages || [];
+    if (req.files?.images) {
+      const images = [req.files.images].flat();
+      for (let image of images) {
+        const imagesPath = `./tmp/${uniqid()}.jpg`;
+        const resultMove = await image.mv(imagesPath);
+
+        if (!resultMove) {
+          const resultCloudinary = await cloudinary.uploader.upload(imagesPath);
+          pictures.push(resultCloudinary.secure_url);
+        } else {
+          res.json({ result: false, error: resultMove });
+        }
+        fs.unlinkSync(imagesPath);
+      }
+    }
+
+    let files = uploadedDocuments || [];
+    if (req.files?.documents) {
+      const documents = [req.files.documents].flat();
+      for (let document of documents) {
+        const filesPath = `./tmp/${uniqid()}.jpg`;
+        const resultMove = await document.mv(filesPath);
+
+        if (!resultMove) {
+          const resultCloudinary = await cloudinary.uploader.upload(filesPath, {});
+          files.push({ name: document.name, url: resultCloudinary.secure_url });
+        } else {
+          res.json({ result: false, error: resultMove });
+        }
+        fs.unlinkSync(filesPath);
+      }
+    }
+
+    const updatedPot = await Pot.findByIdAndUpdate(req.params.id, {
+      user: foundUser._id,
+      contributors: [],
+      animalName,
+      targetAmount: amount,
+      pictures: pictures,
+      description,
+      info: {
+        specie: infos.specie || '',
+        race: infos.breed || '',
+        age: +infos.age || 0,
+        sex: infos.sex || '',
+      },
+      compensations,
+      socialNetworks: socialNetworks,
+      documents: files,
+      urgent,
+      urgenceDescription: explanation,
+      draft: req.params.boolean,
+    }, { returnDocument: "after" });
+
+    if (updatedPot) {
+      res.json({ result: true, pot: updatedPot });
+    } else {
+      res.json({ result: false, error: "Error during the save" });
+    }
+  } else {
+    res.json({ result: false, error: "User not found" });
   }
 });
 
