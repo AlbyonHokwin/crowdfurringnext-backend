@@ -61,6 +61,3 @@ typings/
 .next
 
 .vscode/*
-
-# files in tmp folder
-tmp/
