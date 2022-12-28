@@ -66,26 +66,25 @@ router.post("/signin", (req, res) => {
     return;
   }
 
-  User.findOne({
-    email: { $regex: new RegExp(`^${req.body.email}$`, "i") },
-  }).then(async (data) => {
-    if (bcrypt.compareSync(req.body.password, data.password)) {
-      const pots = await Pot.find({ user: data._id });
-      const contributor = await Pot.find({
-        contributors: { $in: [data.email] },
-      });
+  User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, "i") } })
+    .then(async user => {
+      if (user && bcrypt.compareSync(req.body.password, user.password)) {
+        const pots = await Pot.find({ user: user._id });
+        const contributor = await Pot.find({
+          contributors: { $in: [user.email] },
+        });
 
-      res.json({
-        result: true,
-        token: data.token,
-        email: data.email,
-        pots,
-        contributor,
-      });
-    } else {
-      res.json({ result: false, error: "User not found or wrong password" });
-    }
-  });
+        res.json({
+          result: true,
+          token: user.token,
+          email: user.email,
+          pots,
+          contributor,
+        });
+      } else {
+        res.json({ result: false, error: "User not found or wrong password" });
+      }
+    });
 });
 
 router.get("/payments", async (req, res) => {
@@ -163,16 +162,16 @@ router.post("/addpayment", async (req, res) => {
 
         updatedUser
           ? res.json({
-              result: true,
-              paymentMethod:
-                updatedUser.paymentMethods[
-                  updatedUser.paymentMethods.length - 1
-                ],
-            })
+            result: true,
+            paymentMethod:
+              updatedUser.paymentMethods[
+              updatedUser.paymentMethods.length - 1
+              ],
+          })
           : res.json({
-              result: false,
-              error: "Error during update of user, please try again",
-            });
+            result: false,
+            error: "Error during update of user, please try again",
+          });
       } else res.json({ result: false, error: "Wrong type of information" });
     } else res.json({ result: false, error: "Name already used" });
   } else res.json({ result: false, error: "No user found" });
@@ -206,9 +205,9 @@ router.delete("/deletepayment/:paymentName", async (req, res) => {
       updatedUser
         ? res.json({ result: true, paymentName })
         : res.json({
-            result: false,
-            error: "Error during deletion of payment method",
-          });
+          result: false,
+          error: "Error during deletion of payment method",
+        });
     } else res.json({ result: false, error: "Payment method doesn'nt exist" });
   } else res.json({ result: false, error: "No user found" });
 });
