@@ -255,17 +255,15 @@ router.delete("/deletepayment/:paymentName", async (req, res) => {
 });
 
 router.put("/modify", (req, res) => {
-  const token = req.headers["authorization"].split(" ")[1];
-  if (
-    !checkBody(req.body, [
-      "email",
-      "lastname",
-      "firstname",
-      "street",
-      "zipCode",
-      "city",
-    ])
-  ) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+
+  if (!checkBody(req.body, ["email", "lastname", "firstname", "street", "zipCode", "city"])) {
     res.json({ result: false, error: "Missing or empty fields" });
     return;
   }
@@ -297,30 +295,35 @@ router.put("/modify", (req, res) => {
   });
 });
 
-router.get("/information", (req, res) => {
-  const token = req.headers["authorization"].split(" ")[1];
-  User.findOne({ token }).then((data) => {
-    if (data === null) {
-      res.json({ result: false, error: "User not found" });
-      return;
-    }
-  }),
-    User.findOne({ token }).then((data) => {
-      if (data) {
-        res.json({
-          result: true,
-          user: {
-            email: data.email,
-            firstname: data.firstname,
-            lastname: data.lastname,
-            street: data.address.street,
-            zipCode: data.address.zipCode,
-            additionnal: data.address.additionnal || "",
-            city: data.address.city,
-          },
-        });
-      }
-    });
+router.get("/information", async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+
+  const foundUser = await User.findOne({ token });
+
+  if (!foundUser) {
+    res.json({ result: false, error: "User not found" });
+    return;
+  }
+
+  res.json({
+    result: true,
+    user: {
+      email: foundUser.email,
+      firstname: foundUser.firstname,
+      lastname: foundUser.lastname,
+      street: foundUser.address.street,
+      zipCode: foundUser.address.zipCode,
+      additionnal: foundUser.address.additionnal || "",
+      city: foundUser.address.city,
+      picture: foundUser.picture,
+    },
+  });
 });
 
 module.exports = router;
