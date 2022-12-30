@@ -254,7 +254,7 @@ router.delete("/deletepayment/:paymentName", async (req, res) => {
   } else res.json({ result: false, error: "No user found" });
 });
 
-router.put("/modify", (req, res) => {
+router.put("/modify", async (req, res) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
@@ -268,31 +268,51 @@ router.put("/modify", (req, res) => {
     return;
   }
 
-  User.findOne({ token }).then((data) => {
-    if (data) {
-      User.findOne({
-        email: { $regex: new RegExp(`^${req.body.email}$`, "i") },
-        token: { $not: { $eq: token } },
-      }).then((data) => {
-        if (data === null) {
-          User.updateOne(
-            { token },
-            {
-              email: req.body.email,
-              firstname: req.body.firstname,
-              lastname: req.body.lastname,
-              street: req.body.street,
-              zipCode: req.body.zipCode,
-              additionnal: req.body.additionnal || "",
-              city: req.body.city,
-            }
-          ).then((updated) => {
-            res.json({ result: updated.acknowledged });
-          });
-        } else res.json({ result: false, error: "Email already used" });
+  const foundUser = await User.findOne({ token });
+
+  if (foundUser) {
+    const userWithNewEmail = await User.findOne({
+      email: { $regex: new RegExp(`^${req.body.email}$`, "i") },
+      token: { $not: { $eq: token } },
+    });
+
+    if (!userWithNewEmail) {
+
+      let picture = req.body.picture;
+
+      if (req.files?.profilePicture) {
+        const picturePath = `./tmp/${uniqid()}.jpg`;
+        const resultMove = await req.files.profilePicture.mv(picturePath);
+
+        if (!resultMove) {
+          const resultCloudinary = await cloudinary.uploader.upload(picturePath);
+          fs.unlinkSync(picturePath);
+          picture = resultCloudinary.secure_url;
+
+        } else {
+          res.json({ result: false, error: resultMove });
+        }
+      }
+
+      User.updateOne(
+        { token },
+        {
+          email: req.body.email,
+          firstname: req.body.firstname,
+          lastname: req.body.lastname,
+          address: {
+            street: req.body.street,
+            zipCode: req.body.zipCode,
+            additionnal: req.body.additionnal || "",
+            city: req.body.city,
+          },
+          picture,
+        }
+      ).then((updated) => {
+        res.json({ result: updated.acknowledged });
       });
-    } else res.json({ result: false, error: "User not found" });
-  });
+    } else res.json({ result: false, error: "Email already used" });
+  } else res.json({ result: false, error: "User not found" });
 });
 
 router.get("/information", async (req, res) => {
