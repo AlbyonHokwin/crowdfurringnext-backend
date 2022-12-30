@@ -119,6 +119,7 @@ router.post("/signin", (req, res) => {
           result: true,
           token: user.token,
           email: user.email,
+          picture: user.picture,
           pots,
           contributor,
         });
