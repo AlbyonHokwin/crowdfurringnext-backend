@@ -6,59 +6,100 @@ const Pot = require("../models/pots");
 const { checkBody } = require("../modules/checkBody");
 const bcrypt = require("bcrypt");
 const uid2 = require("uid2");
+const uniqid = require("uniqid");
+const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
 
-router.post("/signup", (req, res) => {
-  if (
-    !checkBody(req.body, [
-      "email",
-      "password",
-      "lastname",
-      "firstname",
-      "street",
-      "zipCode",
-      "city",
-    ])
-  ) {
+router.post("/signup", async (req, res) => {
+  if (!checkBody(req.body, ["email", "password", "lastname", "firstname", "street", "zipCode", "city",])) {
     res.json({ result: false, error: "Missing or empty fields" });
     return;
   }
 
   // Check if the user has not already been registered
-  User.findOne({
-    email: { $regex: new RegExp(`^${req.body.email}$`, "i") },
-  }).then((data) => {
-    if (data === null) {
-      const hash = bcrypt.hashSync(req.body.password, 10);
-      const newUser = new User({
-        email: req.body.email,
-        password: hash,
-        token: uid2(32),
-        firstname: req.body.firstname,
-        lastname: req.body.lastname,
-        address: {
-          street: req.body.street,
-          additionnal: req.body.additionnal || "",
-          zipCode: req.body.zipCode,
-          city: req.body.city,
-        },
-        paymentMethods: [],
-        picture: "",
-        association: null,
-        admin: false,
-        isConfirmed: false,
-        phoneNumber: "",
-        IBAN: "",
-      });
+  const foundUser = await User.findOne({ email: { $regex: new RegExp(`^${req.body.email}$`, "i") } });
 
-      newUser.save().then((newDoc) => {
-        res.json({ result: true, token: newDoc.token, email: newDoc.email });
-      });
-    } else {
-      // User already exists in database
-      res.json({ result: false, error: "User already exists" });
+  if (!foundUser) {
+    let picture = '';
+
+    if (req.files?.profilePicture) {
+      const picturePath = `./tmp/${uniqid()}.jpg`;
+      const resultMove = await req.files.profilePicture.mv(picturePath);
+
+      if (!resultMove) {
+        const resultCloudinary = await cloudinary.uploader.upload(picturePath);
+        fs.unlinkSync(picturePath);
+
+        picture = resultCloudinary.secure_url;
+
+      } else {
+        res.json({ result: false, error: resultMove });
+      }
     }
-  });
+
+    const hash = bcrypt.hashSync(req.body.password, 10);
+    const newUser = new User({
+      email: req.body.email,
+      password: hash,
+      token: uid2(32),
+      firstname: req.body.firstname,
+      lastname: req.body.lastname,
+      address: {
+        street: req.body.street,
+        additionnal: req.body.additionnal || "",
+        zipCode: req.body.zipCode,
+        city: req.body.city,
+      },
+      paymentMethods: [],
+      picture,
+      association: null,
+      admin: false,
+      isConfirmed: false,
+      phoneNumber: "",
+      IBAN: "",
+    });
+
+    const newDoc = await newUser.save()
+    res.json({ result: true, token: newDoc.token, email: newDoc.email, picture: newDoc.picture });
+
+  } else {
+    // User already exists in database
+    res.json({ result: false, error: "User already exists" });
+  }
 });
+
+router.put('/addpicture', async (req, res) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    res.json({ result: false, error: "No token provided" });
+    return;
+  }
+
+  const picture = req.files?.profilePicture;
+
+  if (!picture) {
+    res.json({ result: false, error: "No picture provided" });
+    return;
+  }
+
+  const foundUser = await User.findOne({ token });
+
+  if (foundUser) {
+    const picturePath = `./tmp/${uniqid()}.jpg`;
+    const resultMove = await picture.mv(picturePath);
+
+    if (!resultMove) {
+      const resultCloudinary = await cloudinary.uploader.upload(picturePath);
+      fs.unlinkSync(picturePath);
+
+      res.json({ result: true, picture: resultCloudinary.secure_url })
+    } else {
+      res.json({ result: false, error: resultMove });
+    }
+  } else res.json({ result: false, error: "No user found" });
+})
 
 router.post("/signin", (req, res) => {
   if (!checkBody(req.body, ["email", "password"])) {
